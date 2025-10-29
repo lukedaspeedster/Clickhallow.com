@@ -1,0 +1,355 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎃 Teleporting Trick-or-Click!</title>
+    <style>
+        /* General Styles */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Game Container */
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            background-color: #000;
+            border: 5px solid #ff6600;
+            position: relative;
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.7);
+            border-radius: 10px;
+        }
+
+        /* Screen Layouts (Title, Difficulty, Game Over) */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 3em;
+            color: #ff6600;
+            text-shadow: 2px 2px #8b0000;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+        
+        /* Credits */
+        .credits {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-top: 20px;
+        }
+
+        /* Buttons */
+        button {
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 1.5em;
+            cursor: pointer;
+            background-color: #8b0000;
+            color: white;
+            border: 3px solid #ff6600;
+            border-radius: 8px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: #ff6600;
+            transform: scale(1.05);
+        }
+
+        /* Game Area */
+        #game-area {
+            display: none;
+            cursor: crosshair;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            width: 95%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 1.5em;
+            z-index: 5;
+            color: #00ff00;
+        }
+
+        /* Single Emoji */
+        #single-emoji {
+            position: absolute;
+            font-size: 4.5em; 
+            width: 80px; 
+            height: 80px; 
+            display: flex; 
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.05s, opacity 0.1s; 
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.1); 
+            border-radius: 50%; 
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.5);
+        }
+
+        #single-emoji:active {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+        
+        /* Point Feedback Animation */
+        .point-feedback {
+            position: absolute;
+            font-size: 2em;
+            font-weight: bold;
+            color: #00ff00;
+            animation: fade-up 1s forwards;
+            pointer-events: none; 
+            z-index: 10;
+        }
+
+        @keyframes fade-up {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+
+        /* Game Over Screen */
+        #game-over-screen {
+            display: none;
+            z-index: 20;
+        }
+
+        #final-score {
+            font-size: 2.5em;
+            margin: 20px 0;
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+
+    <!-- 1. Title Screen -->
+    <div id="title-screen" class="screen">
+        <h1>🎃 Teleporting Trick-or-Click! 👻</h1>
+        <p>Click the teleporting emoji as fast as you can! Every hit is +1 point.</p>
+        <button onclick="showDifficultyScreen()">START GAME</button>
+        <div class="credits">Made by Luke Zakk Roy</div>
+    </div>
+
+    <!-- 2. Difficulty Screen -->
+    <div id="difficulty-screen" class="screen" style="display: none;">
+        <h1>Choose Your Haunt Level</h1>
+        <button onclick="startGame(30)">EASY (30 Seconds)</button> 
+        <button onclick="startGame(20)">MEDIUM (20 Seconds)</button>
+        <button onclick="startGame(10)">HARD (10 Seconds)</button>
+    </div>
+
+    <!-- 3. Game Screen -->
+    <div id="game-area">
+        <div id="stats">
+            <span id="score-display">Score: 0</span>
+            <span id="timer-display">Time: 0</span>
+        </div>
+    </div>
+
+    <!-- 4. Game Over Screen -->
+    <div id="game-over-screen" class="screen">
+        <h1>Game Over!</h1>
+        <div id="final-score">Final Score: 0</div>
+        <button onclick="showDifficultyScreen()">Play Again</button>
+        <button onclick="showTitleScreen()">Title Screen</button>
+    </div>
+
+</div>
+
+<script>
+    const titleScreen = document.getElementById('title-screen');
+    const difficultyScreen = document.getElementById('difficulty-screen');
+    const gameArea = document.getElementById('game-area');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const scoreDisplay = document.getElementById('score-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const container = document.getElementById('game-container');
+
+    let score = 0;
+    let timeLeft = 0;
+    let timerInterval;
+    let currentEmoji = null; 
+
+    // --- Game Configuration ---
+    const EMOJIS = ['👻', '🦇', '🕷️', '🍬', '🎃', '💀', '🌕', '🔮'];
+    const EMOJI_SIZE = 80; 
+    const STATS_HEIGHT = 40; // Height to offset spawning below the stats bar
+
+    // --- Screen Management ---
+    function showScreen(screen) {
+        // Stop any active timers or animations when changing screens
+        clearInterval(timerInterval);
+        if (currentEmoji) currentEmoji.remove(); 
+        currentEmoji = null; 
+
+        titleScreen.style.display = 'none';
+        difficultyScreen.style.display = 'none';
+        gameArea.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        
+        screen.style.display = screen === gameArea ? 'block' : 'flex';
+    }
+
+    function showTitleScreen() {
+        showScreen(titleScreen);
+    }
+
+    function showDifficultyScreen() {
+        showScreen(difficultyScreen);
+    }
+
+    // --- Game Logic ---
+    function startGame(timeLimit) {
+        showScreen(gameArea);
+        score = 0;
+        timeLeft = timeLimit;
+        scoreDisplay.textContent = 'Score: 0';
+        timerDisplay.textContent = `Time: ${timeLimit}`;
+        
+        createEmoji(); 
+        
+        timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+        timeLeft--;
+        timerDisplay.textContent = `Time: ${timeLeft}`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            endGame();
+        }
+    }
+
+    function endGame() {
+        finalScoreDisplay.textContent = `Final Score: ${score}`;
+        if (currentEmoji) currentEmoji.remove(); 
+        showScreen(gameOverScreen);
+    }
+    
+    function showPointFeedback(x, y) {
+        const points = 1;
+        const feedback = document.createElement('div');
+        feedback.className = 'point-feedback';
+        
+        // Always display +1 point feedback
+        feedback.textContent = `+${points}`;
+        feedback.style.left = `${x}px`;
+        feedback.style.top = `${y}px`;
+        feedback.style.color = '#00ff00'; 
+        
+        gameArea.appendChild(feedback);
+        
+        setTimeout(() => feedback.remove(), 1000);
+    }
+
+    // --- Emoji Management ---
+    function getRandomEmojiChar(current) {
+        let newChar;
+        do {
+            newChar = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+        } while (newChar === current); // Ensure the new emoji is different from the current one
+        return newChar;
+    }
+
+    function setEmojiProperties(emojiElement, char) {
+        emojiElement.textContent = char;
+    }
+    
+    function teleportEmoji(emojiElement) {
+        // Calculate bounds, respecting the emoji size and stats bar height
+        const maxX = container.clientWidth - EMOJI_SIZE;
+        const maxY = container.clientHeight - EMOJI_SIZE;
+        const minY = STATS_HEIGHT;
+
+        const x = Math.random() * maxX;
+        // Ensure the emoji doesn't spawn under the stats bar
+        const y = Math.random() * (maxY - minY) + minY;
+        
+        // Instantaneous position change (teleport)
+        emojiElement.style.left = `${x}px`;
+        emojiElement.style.top = `${y}px`;
+    }
+
+    function createEmoji() {
+        currentEmoji = document.createElement('div'); 
+        currentEmoji.id = 'single-emoji';
+        
+        // Set initial type and position
+        setEmojiProperties(currentEmoji, getRandomEmojiChar());
+        teleportEmoji(currentEmoji); 
+
+        // Click handler
+        currentEmoji.onclick = function() {
+            const pointsToAward = 1; 
+            
+            // 1. Update Score and show feedback
+            updateScore(pointsToAward);
+            showPointFeedback(parseFloat(this.style.left), parseFloat(this.style.top));
+            
+            // 2. Swap the emoji to a new type
+            const newChar = getRandomEmojiChar(this.textContent);
+            setEmojiProperties(this, newChar); 
+            
+            // 3. Teleport to a new location
+            teleportEmoji(this);
+        };
+
+        gameArea.appendChild(currentEmoji);
+    }
+
+    function updateScore(points) {
+        score += points;
+        scoreDisplay.textContent = `Score: ${score}`;
+    }
+
+    // --- Initialization ---
+    window.onload = function() {
+        showTitleScreen();
+    }
+    
+</script>
+
+</body>
+</html>
+
+
+
